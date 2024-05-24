@@ -1,0 +1,83 @@
+// Sensor characteristics (replace these values with your actual sensor data)
+const float VOLTAGE_AT_ZERO_PRESSURE = 0.5;  // Voltage output at zero pressure (in volts)
+const float VOLTAGE_PER_UNIT_PRESSURE = 0.1; // Change in voltage per unit change in pressure (in volts per unit)
+
+// Threshold pressure (adjust this value according to your requirement)
+const float FALL_THRESHOLD_PRESSURE = 42.0; // Example threshold pressure in units
+#include <SoftwareSerial.h>
+// Configure the software serial port for communication with the GSM module
+SoftwareSerial gsmModule(2, 3); // RX, TX
+// Function to calculate pressure from analog reading
+float calculatePressure(int analogReading) {
+    // Convert analog reading to voltage (assuming 5V reference voltage)
+    float voltage = analogReading * (5.0 / 1023.0);
+    Serial.print("voltage reading: ");
+    Serial.print(voltage);
+    // Calculate pressure using linear interpolation
+    float pressure = (voltage - VOLTAGE_AT_ZERO_PRESSURE) / VOLTAGE_PER_UNIT_PRESSURE;
+    
+    return pressure;
+}
+void sendMessage(String phoneNumber, String message) {
+  Serial.println("Sending a message to: " + phoneNumber);
+  gsmModule.println("AT+CMGF=1"); // Set the GSM module to text mode
+  delay(1000);
+  gsmModule.print("AT+CMGS=\""); // AT command for sending a message
+  gsmModule.print(phoneNumber); // Phone number to send the message to
+  gsmModule.println("\"");
+  delay(1000);
+  gsmModule.print(message); // Message content
+  delay(100);
+  gsmModule.println((char)26); // End of message character
+  delay(5000); // Delay for the message to be sent
+  Serial.println("Message sent.");
+}
+
+void setup() {
+    Serial.begin(9600);
+    while (!Serial) {
+    ; // Wait for serial port to connect. Needed for native USB port only
+  }
+  // Initialize the software serial port for communication with the GSM module
+  gsmModule.begin(9600);
+  delay(1000);
+  Serial.println("Initializing GSM module...");
+  gsmModule.write("AT\r\n");
+  delay(1000);
+  gsmModule.write("ATE0\r\n");
+  delay(1000);
+  // Verify if the module is responding
+  if(gsmModule.find("OK")) {
+    Serial.println("GSM module initialized.");
+  } else {
+    Serial.println("Error initializing GSM module!");
+    while(1);
+  }
+    pinMode(A0, INPUT);
+}
+
+void loop() {
+    // Read analog sensor value
+    int sensorValue = analogRead(A0);
+    
+    // Calculate pressure
+    float pressure = calculatePressure(sensorValue);
+    
+    // Print pressure to serial monitor
+    //Serial.print("Analog reading: ");
+    //Serial.print(sensorValue);
+    Serial.print(", Pressure: ");
+    Serial.println(pressure);
+    //Serial.println(" units");
+    
+    // Check if the helmet falls with a certain force
+    if (pressure >= FALL_THRESHOLD_PRESSURE) {
+        // Helmet has fallen with sufficient force
+        Serial.println("Helmet has fallen!");
+        // Here, you can include code to send an SMS or take other actions
+        sendMessage("+917010824704", "Helmet has fallen!");
+        delay(2000);
+    }
+    
+    delay(1000); // Delay for stability
+}
